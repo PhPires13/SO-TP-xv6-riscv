@@ -103,6 +103,7 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_sync(void);
+static uint64 sys_getcnt(void); // defined below, next to the counter it reads
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -130,8 +131,34 @@ static uint64 (*syscalls[])(void) = {
   [SYS_mkdir]   = sys_mkdir,
   [SYS_close]   = sys_close,
   [SYS_sync]    = sys_sync,
+  [SYS_getcnt]  = sys_getcnt,
   // clang-format on
 };
+
+static int syscall_count[NELEM(syscalls)]; // calls made, per syscall number
+static struct spinlock count_lock; // syscall_count++ is not atomic
+
+void syscallinit(void) {
+  initlock(&count_lock, "syscall_count"); // named, so panic() can report it
+}
+
+static int validsyscall(int num) { // shared by syscall() and sys_getcnt()
+  return num > 0 && num < NELEM(syscalls) && syscalls[num];
+}
+
+static uint64 sys_getcnt(void) { // int getcnt(int num)
+  int num;
+  int n;
+
+  argint(0, &num);
+  if (!validsyscall(num)) // num is user-controlled; never index unchecked
+    return -1;
+
+  acquire(&count_lock);
+  n = syscall_count[num];
+  release(&count_lock);
+  return n;
+}
 
 void
 syscall(void)
@@ -140,7 +167,11 @@ syscall(void)
   struct proc *p = myproc();
 
   num = p->trapframe->a7;
-  if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+  if (validsyscall(num)) {
+    acquire(&count_lock);
+    syscall_count[num]++; // before dispatch, so getcnt counts itself
+    release(&count_lock);
+
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
     p->trapframe->a0 = syscalls[num]();
