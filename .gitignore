@@ -10,3 +10,9 @@ _*
 /user/usys.S
 .gdbinit
 TAGS
+
+# CLion
+.idea
+
+# macOS
+.DS_Store

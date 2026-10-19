@@ -53,7 +53,8 @@
 
 // User memory layout.
 // Address zero first:
-//   text
+//   unmapped page (catches null-pointer dereferences)
+//   text, starting at USERBASE (see user/user.ld)
 //   original data and bss
 //   fixed-size stack
 //   expandable heap
@@ -61,3 +62,6 @@
 //   TRAPFRAME (p->trapframe, used by the trampoline)
 //   TRAMPOLINE (the same page as in the kernel)
 #define TRAPFRAME (TRAMPOLINE - PGSIZE)
+
+// lowest valid user address; [0, USERBASE) is never mapped
+#define USERBASE PGSIZE

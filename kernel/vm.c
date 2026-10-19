@@ -460,7 +460,7 @@ vmfault(pagetable_t pagetable, uint64 psz, uint64 va, int read)
 {
   uint64 mem;
 
-  if (va >= psz)
+  if (va < USERBASE || va >= psz) // never map the null page
     return 0;
   va = PGROUNDDOWN(va);
   if (ismapped(pagetable, va)) {
